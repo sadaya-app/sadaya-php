@@ -8,11 +8,10 @@ namespace Sadaya;
  * Verifies an order's address without trusting Sadaya.
  *
  * Every order is paid to an address that is a contract: CREATE2 from the official factory, with the route sealed
- * inside (your payout wallet, the fee, the recovery wallet, what the order accepts and, since factory v3, who splits
+ * inside (your payout wallet, the fee, the `recovery` address, what the order accepts and, since factory v3, who splits
  * the order during the review window and until when). This class recomputes that address with the same formula as the
- * contract, and checks that the route pays you and that every payment link (uri) pays that address. If someone
- * compromised Sadaya and returned another address, another route or another link, verification fails and your store
- * never shows that address to the customer.
+ * contract, and checks that the route pays you and that every payment link (uri) pays that address. An address, a
+ * route or a link that does not match fails verification, and your store never shows it to the customer.
  *
  * No dependencies. It needs 64-bit PHP (PHP_INT_SIZE = 8), which is the norm on any current server.
  */
@@ -168,7 +167,7 @@ final class Address
      * @param array<string, mixed> $expected What your store knows on its own, never what the API says:
      *                                       payout (your payout wallet, required), feeBps (your agreed fee, exact)
      *                                       or maxFeeBps (the highest fee you accept; always one of the two) and, if
-     *                                       you want to pin them, feeRecipient and recovery (Sadaya's wallets).
+     *                                       you want to pin them, feeRecipient and recovery (Sadaya's addresses in the route).
      *                                       maxReviewDays: the longest review window you accept (MAX_REVIEW_DAYS, 31,
      *                                       by default); now: the moment of the check, in unix seconds (now, by
      *                                       default).
@@ -201,7 +200,7 @@ final class Address
             throw new SadayaVerificationException('The order\'s fee wallet is not the one you pinned.', 'fee_recipient');
         }
         if (!empty($expected['recovery']) && !self::same($route['recovery'], $expected['recovery'])) {
-            throw new SadayaVerificationException('The order\'s recovery wallet is not the one you pinned.', 'recovery');
+            throw new SadayaVerificationException('The order\'s recovery address is not the one you pinned.', 'recovery');
         }
         // factories v3 and v4: the window in which only Sadaya can split the order cannot be longer than the one you accept
         if (isset($route['open_after'])) {
@@ -313,7 +312,7 @@ final class Address
     }
 
     /**
-     * What the factory seals into each clone: merchant, fee wallet, fee, recovery wallet and the accepted list (94
+     * What the factory seals into each clone: merchant, fee wallet, fee, `recovery` address and the accepted list (94
      * bytes, factory v2) and, in v3 and v4, who splits the order during the review window and when that window ends
      * (119 bytes).
      */

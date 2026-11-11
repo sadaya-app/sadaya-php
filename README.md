@@ -177,8 +177,9 @@ $one = $sadaya->getSettlement('stl_3f9a7c2e8b4d1f6a0c5e9b7d');
 ### Choosing the network
 
 Each order is paid on a single network: its address is sealed for that network, and anything that arrives on another
-network or in another coin does not count toward the order and may be lost. If your customer files a claim, it follows
-the misdirected payments policy agreed with your merchant account; a return is not guaranteed.
+network or in another coin does not count toward the order and may be lost. Recovering a misdirected payment is a
+complex and uncertain process that often cannot be completed, so a return is not guaranteed. If your customer files a
+claim, it follows the misdirected payments policy agreed with your merchant account.
 
 - With `network` when you create the order (its `chain_id`, such as `56`, or its key, such as `'bsc'`), the order is
   born with its address. `createOrder` throws a `SadayaException` with status `400` if that network is not enabled for
@@ -276,9 +277,8 @@ the API answers `403`.
 ## Verifying each order's address
 
 Each order's address comes from a public formula: the official factory, the order id and its route (`route`). The
-library recomputes it without trusting Sadaya and checks that the route pays you. If someone compromised Sadaya and
-returned another address, another wallet, an inflated fee or another payment link, your store would not show it to
-the customer.
+library recomputes it without trusting Sadaya and checks that the route pays your wallet and your agreed fee, and that
+every payment link pays that address: your store only shows the customer an address it verified itself.
 
 ```php
 use Sadaya\Client;

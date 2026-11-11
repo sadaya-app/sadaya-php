@@ -13,7 +13,7 @@ namespace Sadaya;
 class Client
 {
     public const DEFAULT_BASE_URL = 'https://api.sadaya.app';
-    public const VERSION = '1.0.1';
+    public const VERSION = '1.0.2';
 
     // sk_live_ or sk_test_ followed by 40 hex characters (the same 24 to 64 range the API accepts is allowed)
     private const KEY_PATTERN = '/^sk_(live|test)_[a-z0-9]{24,64}$/';

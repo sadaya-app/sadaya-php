@@ -3088,7 +3088,7 @@
    "check": "fee_recipient"
   },
   {
-   "why": "a different pinned recovery wallet",
+   "why": "a different pinned recovery address",
    "order": {
     "id": "e4e9ecde-e769-40ab-91a3-14df89fef0ed",
     "object": "order",
@@ -3608,7 +3608,7 @@
    "check": "route"
   },
   {
-   "why": "a zero recovery wallet",
+   "why": "a zero recovery address",
    "order": {
     "id": "e4e9ecde-e769-40ab-91a3-14df89fef0ed",
     "object": "order",
