@@ -1,0 +1,25 @@
+{
+    "name": "sadaya/sadaya-php",
+    "description": "Sadaya API client for PHP: orders, refunds, webhook, signature verification and verification of each order's address. No dependencies.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "sadaya",
+        "payments",
+        "crypto",
+        "usdt",
+        "usdc",
+        "webhooks"
+    ],
+    "require": {
+        "php": ">=8.2",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Sadaya\\": "src/Sadaya/"
+        }
+    },
+    "minimum-stability": "stable"
+}
