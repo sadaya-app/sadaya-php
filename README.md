@@ -74,11 +74,12 @@ new Client(string $apiKey, string $baseUrl = Client::DEFAULT_BASE_URL, int $time
 - `$apiKey`: `sk_live_...` (real money) or `sk_test_...` (test mode). Validated when the client is created.
 - `$baseUrl`: `https://api.sadaya.app` by default (without `/v1`).
 - `$timeout`: maximum seconds per request.
-- `$verify`: `['payout' => your payout wallet, 'feeBps' => your agreed fee]` (or `maxFeeBps`): every order with an
-  address that the API returns is verified (its address and its payment links) before it reaches you. See
+- `$verify`: `['payout' => your payout wallet, 'feeBps' => your agreed fee]` (or `maxFeeBps`), and `'tronWallet'` for
+  the orders on Tron: every order with an address that the API returns is verified (its address and its payment links)
+  before it reaches you. See
   [Verifying each order's address](#verifying-each-orders-address).
 
-`$sadaya->isLivemode()` tells whether the key is an `sk_live_` key. The client sends `User-Agent: sadaya-php/1.0` (its
+`$sadaya->isLivemode()` tells whether the key is an `sk_live_` key. The client sends `User-Agent: sadaya-php/1.1` (its
 major and minor version) and never shows the key in `var_dump` or `print_r`.
 
 | Method | Endpoint | Returns (associative array) |
@@ -295,7 +296,7 @@ try {
     $order = $sadaya->createOrder(['amount' => '15.00', 'currency' => 'USD', 'external_id' => $cart['id'], 'network' => 'bsc']);
     // you can now show $order['deposit_address'] and each network's uri, or send the customer to $order['checkout_url']
 } catch (SadayaVerificationException $e) {
-    // $e->getCheck() says what failed: route, payout, fee, fee_recipient, recovery, review, networks, address, uri or network
+    // $e->getCheck() says what failed: route, payout, tron_wallet, fee, fee_recipient, recovery, review, networks, address, uri or network
     // do not show the address; let Sadaya know
 }
 ```
@@ -320,6 +321,14 @@ check `review`. Older orders (factory v2) verify as before.
 
 This library already knows the next factory version and still verifies v3 and v2 orders. The fee (`feeBps` or
 `maxFeeBps`) is required: without it, the fee each order charges you cannot be checked.
+
+**Orders on Tron.** On Tron (USDT TRC-20) the customer pays straight into your own Tron wallet, so there is no contract
+address to recompute. `Address::verifyOrder($order, ['tronWallet' => ..., 'feeBps' => ...])` checks that the route is
+Tron's (`route.direct` is `'tron'`), that it pays exactly your Tron wallet (`route.merchant` and `deposit_address`;
+otherwise the check `tron_wallet` or `address`), that it takes only USDT on Tron, that the fee is the agreed one, and that
+no payment link is offered: Tron has no standard one, so show the address and the exact amount. The exact amount (`due`)
+carries a code in its 3rd and 4th decimals that tells the payment apart: show it as it is. Give `payout` and
+`tronWallet` to verify every order; a store that charges only on Tron may give `tronWallet` alone.
 
 If you send the customer to the hosted checkout, verification confirms that the order pays you; what the customer sees
 on that page is served by Sadaya. To cover that too, show the verified address yourself: in your own checkout, with a

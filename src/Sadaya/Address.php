@@ -13,6 +13,9 @@ namespace Sadaya;
  * contract, and checks that the route pays you and that every payment link (uri) pays that address. An address, a
  * route or a link that does not match fails verification, and your store never shows it to the customer.
  *
+ * An order on Tron is paid straight into your own Tron wallet, so there is no contract address there: it must pay
+ * exactly the Tron wallet you configured, take only USDT on Tron, at your fee, and offer no payment link.
+ *
  * No dependencies. It needs 64-bit PHP (PHP_INT_SIZE = 8), which is the norm on any current server.
  */
 final class Address
@@ -42,6 +45,10 @@ final class Address
 
     /** The network's native coin (ETH, BNB) in the accepted list. */
     public const NATIVE = '0x0000000000000000000000000000000000000000';
+
+    /** Tron, a direct network: its chain id and its USDT (TRC-20), the only coin its orders take. */
+    public const TRON_CHAIN_ID = 728126428;
+    public const TRON_USDT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
     // rotation of each Keccak lane, in x + 5y order
     private const ROT = [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14];
@@ -165,7 +172,9 @@ final class Address
      *
      * @param array<string, mixed> $order    The order as the API returned it.
      * @param array<string, mixed> $expected What your store knows on its own, never what the API says:
-     *                                       payout (your payout wallet, required), feeBps (your agreed fee, exact)
+     *                                       payout (your payout wallet, required for the orders of the EVM networks),
+     *                                       tronWallet (your own Tron wallet, T..., required for the orders on Tron: an
+     *                                       order on Tron is checked against it, with no contract), feeBps (your agreed fee, exact)
      *                                       or maxFeeBps (the highest fee you accept; always one of the two) and, if
      *                                       you want to pin them, feeRecipient and recovery (Sadaya's addresses in the route).
      *                                       maxReviewDays: the longest review window you accept (MAX_REVIEW_DAYS, 31,
@@ -175,6 +184,10 @@ final class Address
      */
     public static function verifyOrder(array $order, array $expected): array
     {
+        // an order on Tron pays your own Tron wallet: checked against tronWallet, with no contract address
+        if (is_array($order['route'] ?? null) && ($order['route']['direct'] ?? null) !== null) {
+            return self::verifyDirect($order, $expected);
+        }
         if (!self::isAddress($expected['payout'] ?? null)) {
             throw new SadayaVerificationException('Missing your payout wallet (payout) to verify the order: set it in your configuration, never take it from the API.', 'payout');
         }
@@ -187,15 +200,7 @@ final class Address
         if (!self::same($route['merchant'], $expected['payout'])) {
             throw new SadayaVerificationException('The order does not pay your payout wallet (it pays ' . $route['merchant'] . '): do not show its address, and let Sadaya know.', 'payout');
         }
-        if (!isset($expected['feeBps']) && !isset($expected['maxFeeBps'])) {
-            throw new SadayaVerificationException('Missing your agreed fee (feeBps) or the highest fee you accept (maxFeeBps): without it, the fee the order charges you cannot be checked.', 'fee');
-        }
-        if (isset($expected['feeBps']) && $route['fee_bps'] !== (int) $expected['feeBps']) {
-            throw new SadayaVerificationException('The order\'s fee (' . $route['fee_bps'] . ' basis points) is not the agreed one (' . $expected['feeBps'] . ').', 'fee');
-        }
-        if (isset($expected['maxFeeBps']) && $route['fee_bps'] > (int) $expected['maxFeeBps']) {
-            throw new SadayaVerificationException('The order\'s fee (' . $route['fee_bps'] . ' basis points) exceeds the maximum you accept (' . $expected['maxFeeBps'] . ').', 'fee');
-        }
+        self::checkFee($route, $expected);
         if (!empty($expected['feeRecipient']) && !self::same($route['fee_recipient'], $expected['feeRecipient'])) {
             throw new SadayaVerificationException('The order\'s fee wallet is not the one you pinned.', 'fee_recipient');
         }
@@ -259,6 +264,78 @@ final class Address
             }
         }
         return $order;
+    }
+
+    /**
+     * The fee a route charges you: exactly the agreed one (feeBps) or at most the highest you accept (maxFeeBps). One is
+     * required.
+     *
+     * @param array<string, mixed> $route
+     * @param array<string, mixed> $expected
+     */
+    private static function checkFee(array $route, array $expected): void
+    {
+        if (!isset($expected['feeBps']) && !isset($expected['maxFeeBps'])) {
+            throw new SadayaVerificationException('Missing your agreed fee (feeBps) or the highest fee you accept (maxFeeBps): without it, the fee the order charges you cannot be checked.', 'fee');
+        }
+        if (isset($expected['feeBps']) && $route['fee_bps'] !== (int) $expected['feeBps']) {
+            throw new SadayaVerificationException('The order\'s fee (' . $route['fee_bps'] . ' basis points) is not the agreed one (' . $expected['feeBps'] . ').', 'fee');
+        }
+        if (isset($expected['maxFeeBps']) && $route['fee_bps'] > (int) $expected['maxFeeBps']) {
+            throw new SadayaVerificationException('The order\'s fee (' . $route['fee_bps'] . ' basis points) exceeds the maximum you accept (' . $expected['maxFeeBps'] . ').', 'fee');
+        }
+    }
+
+    /**
+     * An order on Tron: the customer pays straight into your own Tron wallet, with an exact amount whose 3rd and 4th
+     * decimals tell the payment apart. There is no contract: it must pay exactly the Tron wallet you configured
+     * (tronWallet), take only USDT on Tron, at your fee, and offer no payment link (Tron has no standard one: show the
+     * address and the exact amount).
+     *
+     * @param array<string, mixed> $order
+     * @param array<string, mixed> $expected
+     * @return array<string, mixed>
+     */
+    private static function verifyDirect(array $order, array $expected): array
+    {
+        if (!self::isTron($expected['tronWallet'] ?? null)) {
+            throw new SadayaVerificationException('Missing your Tron wallet (tronWallet) to verify an order on Tron: set it in your configuration, never take it from the API.', 'tron_wallet');
+        }
+        $route = $order['route'];
+        $accepted = $route['accepted'] ?? null;
+        $ok = ($route['direct'] ?? null) === 'tron' && self::isTron($route['merchant'] ?? null)
+            && is_int($route['fee_bps'] ?? null) && $route['fee_bps'] >= 0 && $route['fee_bps'] <= 1000
+            && is_array($accepted) && count($accepted) === 1 && is_array($accepted[0] ?? null)
+            && ($accepted[0]['chain_id'] ?? null) === self::TRON_CHAIN_ID && ($accepted[0]['token'] ?? null) === self::TRON_USDT;
+        if (!$ok) {
+            throw new SadayaVerificationException('The order does not carry its complete route (route): do not show its address, and let Sadaya know.', 'route');
+        }
+        if ($route['merchant'] !== $expected['tronWallet']) {
+            throw new SadayaVerificationException('The order does not pay your Tron wallet (it pays ' . $route['merchant'] . '): do not show its address, and let Sadaya know.', 'tron_wallet');
+        }
+        self::checkFee($route, $expected);
+        if (($order['deposit_address'] ?? null) !== $route['merchant']) {
+            throw new SadayaVerificationException('The order\'s address is not your Tron wallet: do not show it to the customer, and let Sadaya know.', 'address');
+        }
+        foreach ($order['networks'] ?? [] as $network) {
+            if ((int) ($network['chain_id'] ?? 0) !== self::TRON_CHAIN_ID || ($network['token'] ?? null) !== self::TRON_USDT) {
+                throw new SadayaVerificationException('The order offers payment in ' . ($network['symbol'] ?? ($network['token'] ?? '')) . ' on network ' . ($network['chain_id'] ?? '') . ', which its route does not accept.', 'networks');
+            }
+            if (($network['uri'] ?? null) !== null) {
+                throw new SadayaVerificationException('The payment link for ' . ($network['symbol'] ?? 'the order') . ' on network ' . $network['chain_id'] . ' does not pay the order\'s address: do not show it, and let Sadaya know.', 'uri');
+            }
+        }
+        return $order;
+    }
+
+    /**
+     * A Tron address as people write it: T and 33 characters of base58 (base58 is case-sensitive: compared exactly).
+     *
+     * @param mixed $value
+     */
+    private static function isTron($value): bool
+    {
+        return is_string($value) && preg_match('/^T[1-9A-HJ-NP-Za-km-z]{33}$/', $value) === 1;
     }
 
     /**

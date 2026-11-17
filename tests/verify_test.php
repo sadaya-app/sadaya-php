@@ -135,5 +135,22 @@ foreach (['the link with lowercase hex' => $lower, 'no payment links' => $none] 
     }
 }
 
+// 7. orders on Tron (ADR 0100): paid straight into the store's own Tron wallet, with no contract to recompute
+foreach ($vectors['tron']['valid'] as $i => $v) {
+    try {
+        check("order on Tron $i verified", Address::verifyOrder($v['order'], $v['expected']) === $v['order']);
+    } catch (SadayaVerificationException $e) {
+        check("order on Tron $i verified", false, $e->getCheck() . ': ' . $e->getMessage());
+    }
+}
+foreach ($vectors['tron']['invalid'] as $v) {
+    try {
+        Address::verifyOrder($v['order'], $v['expected']);
+        check($v['why'], false, 'not rejected');
+    } catch (SadayaVerificationException $e) {
+        check($v['why'], $e->getCheck() === $v['check'], 'failed ' . $e->getCheck() . ', expected ' . $v['check']);
+    }
+}
+
 echo ($failed === 0 ? 'OK ' : 'FAILED ') . $passed . '/' . ($passed + $failed) . PHP_EOL;
 exit($failed === 0 ? 0 : 1);

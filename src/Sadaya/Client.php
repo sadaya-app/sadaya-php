@@ -13,7 +13,7 @@ namespace Sadaya;
 class Client
 {
     public const DEFAULT_BASE_URL = 'https://api.sadaya.app';
-    public const VERSION = '1.0.3';
+    public const VERSION = '1.1.0';
 
     // sk_live_ or sk_test_ followed by 40 hex characters (the same 24 to 64 range the API accepts is allowed)
     private const KEY_PATTERN = '/^sk_(live|test)_[a-z0-9]{24,64}$/';
@@ -32,7 +32,9 @@ class Client
      * @param string $baseUrl The Sadaya API URL, without /v1.
      * @param int    $timeout Maximum time per request, in seconds.
      * @param array<string, mixed>|null $verify With ['payout' => your payout wallet, 'feeBps' => your agreed fee]
-     *                                          (or maxFeeBps), every order with an address that the API returns is
+     *                                          (or maxFeeBps), and 'tronWallet' => your own Tron wallet (T...) to verify
+     *                                          the orders on Tron (a store that charges only on Tron may give it without
+     *                                          payout), every order with an address that the API returns is
      *                                          verified before it reaches you (its address and its payment links); if
      *                                          they do not match, it throws SadayaVerificationException. An order with
      *                                          no chosen network comes back as it is: it has no address yet.
@@ -63,7 +65,12 @@ class Client
         if (!function_exists('curl_init')) {
             throw new SadayaException('The PHP curl extension (ext-curl) is missing.', 0, 'invalid_request_error');
         }
-        if ($verify !== null && (!is_string($verify['payout'] ?? null) || preg_match('/^0x[0-9a-fA-F]{40}$/', $verify['payout']) !== 1)) {
+        // your payout wallet, or only your Tron wallet when you charge only on Tron (its orders are checked against it)
+        $tron = $verify !== null && ($verify['tronWallet'] ?? null) !== null;
+        if ($tron && (!is_string($verify['tronWallet']) || preg_match('/^T[1-9A-HJ-NP-Za-km-z]{33}$/', $verify['tronWallet']) !== 1)) {
+            throw new SadayaException("verify['tronWallet'] must be your own Tron wallet (T and 33 characters), taken from your own configuration, never from the API.", 0, 'invalid_request_error');
+        }
+        if ($verify !== null && (($verify['payout'] ?? null) !== null || !$tron) && (!is_string($verify['payout'] ?? null) || preg_match('/^0x[0-9a-fA-F]{40}$/', $verify['payout']) !== 1)) {
             throw new SadayaException("verify['payout'] must be your payout wallet (0x and 40 hex characters), taken from your own configuration, never from the API.", 0, 'invalid_request_error');
         }
         if ($verify !== null && !isset($verify['feeBps']) && !isset($verify['maxFeeBps'])) {
