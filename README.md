@@ -134,8 +134,9 @@ $order = $sadaya->createOrder([
 
 `checkOrder($id)` looks at the chain for that order right now, like **Check now** in the dashboard, and returns it with
 its payments. It shares the dashboard's limit for your account (a `429` brings `getRetryAfter()`), it only looks at live
-orders (a test order answers `400`: simulate its payment instead) and only while the order is watched (until its review
-window ends; after that, `409`).
+orders (a test order answers `400`: simulate its payment instead). It also finds a late payment after the order's review
+window has ended, with no transaction hash; an order on Tron answers `409` from 7 days after it expires, because a later
+transfer to your Tron wallet waits in your dashboard (My business, Tron) to be assigned to its order.
 
 `cancelOrder($id)` cancels an order that never received anything (waiting or expired): the checkout stops showing its
 address and you get `order.canceled`. One that already has a payment answers `409`, and canceling it again returns it as
@@ -329,6 +330,10 @@ otherwise the check `tron_wallet` or `address`), that it takes only USDT on Tron
 no payment link is offered: Tron has no standard one, so show the address and the exact amount. The exact amount (`due`)
 carries a code in its 3rd and 4th decimals that tells the payment apart: show it as it is. Give `payout` and
 `tronWallet` to verify every order; a store that charges only on Tron may give `tronWallet` alone.
+
+**Orders on Bitcoin and Litecoin.** This library does not verify orders on Bitcoin or Litecoin yet: `Address::verifyOrder`
+refuses them (the check `route`), so a store with `$verify` never shows their address. To charge on them with each address
+verified, use the Node library, which derives it from your extended public key.
 
 If you send the customer to the hosted checkout, verification confirms that the order pays you; what the customer sees
 on that page is served by Sadaya. To cover that too, show the verified address yourself: in your own checkout, with a

@@ -184,6 +184,10 @@ final class Address
      */
     public static function verifyOrder(array $order, array $expected): array
     {
+        // an order on Bitcoin or Litecoin pays an address of your own extended public key: this library does not derive it yet
+        if (is_array($order['route'] ?? null) && in_array($order['route']['direct'] ?? null, ['bitcoin', 'litecoin'], true)) {
+            throw new SadayaVerificationException('This library does not verify orders on Bitcoin or Litecoin yet: do not show their address, or verify them with the Node library (@sadaya/node).', 'route');
+        }
         // an order on Tron pays your own Tron wallet: checked against tronWallet, with no contract address
         if (is_array($order['route'] ?? null) && ($order['route']['direct'] ?? null) !== null) {
             return self::verifyDirect($order, $expected);
