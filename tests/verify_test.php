@@ -135,7 +135,7 @@ foreach (['the link with lowercase hex' => $lower, 'no payment links' => $none] 
     }
 }
 
-// 7. orders on Tron (ADR 0100): paid straight into the store's own Tron wallet, with no contract to recompute
+// 7. orders on Tron: paid straight into the store's own Tron wallet, with no contract to recompute
 foreach ($vectors['tron']['valid'] as $i => $v) {
     try {
         check("order on Tron $i verified", Address::verifyOrder($v['order'], $v['expected']) === $v['order']);
