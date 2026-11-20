@@ -11,7 +11,7 @@ namespace Sadaya;
  * - route: the order does not carry its complete route, or its factory is not an official one;
  * - payout: the route does not pay your payout wallet (or yours is missing from the configuration);
  * - fee: the fee is not the agreed one or exceeds the maximum (or it is missing from the configuration);
- * - fee_recipient or recovery: it is not the Sadaya wallet you pinned;
+ * - fee_recipient or handler: it is not the Sadaya wallet you pinned;
  * - review: the review window is longer than the one you accept;
  * - networks: the checkout offers something the route does not accept;
  * - address: the address does not match the route;
@@ -29,7 +29,7 @@ class SadayaVerificationException extends SadayaException
         $this->check = $check;
     }
 
-    /** What failed: route, payout, fee, fee_recipient, recovery, review, networks, address, uri or network. */
+    /** What failed: route, payout, fee, fee_recipient, handler, review, networks, address, uri or network. */
     public function getCheck(): string
     {
         return $this->check;
