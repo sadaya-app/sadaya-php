@@ -236,6 +236,9 @@ $deposit = $sadaya->createOrder(['amount' => '500', 'currency' => 'USD', 'mode' 
 - The order turns `paid` as soon as any amount is confirmed, and you get `order.credited`. If more arrives at the same
   address later, it is added up and you get another `order.credited`.
 - `received` is the total credited so far: credit your user the difference from what you already credited.
+- Each event also includes `payments`, every transfer to the deposit, each with its own `id` (`pay_...`), `amount` and
+  the `value` it credits. To credit transfer by transfer, credit each payment once, by its `id`, when its `status` is
+  `confirmed` or `settled`. The order's `id` never changes: it identifies the deposit.
 - A deposit never goes through `underpaid` and never sends `order.paid` or `order.underpaid`. A late payment is
   credited all the same, with `flags.late`.
 - In `USD`, a deposit takes dollars one to one (USDT, USDC and the other ones the network accepts) and also ETH and
@@ -375,7 +378,8 @@ switch ($event['type']) {
         // price and stock may have changed: review it and decide before delivering
         break;
     case 'order.credited':       // deposits: $event['data']['received'] is the total credited so far
-        // credit your user the difference from what you already credited
+        // credit your user the difference from what you already credited, or, transfer by transfer,
+        // each of $event['data']['payments'] once, by its id
         break;
     case 'order.overpaid':       // more reached a charge that was already paid: $event['data']['received'] is the new total
         // the extra since the last notice is yours: refund it or credit it
